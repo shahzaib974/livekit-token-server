@@ -1,0 +1,16 @@
+{
+  "name": "livekit-token-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal LiveKit token issuer for Vercel (Node runtime).",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node api/health.js"
+  },
+  "dependencies": {
+    "livekit-server-sdk": "^2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
