@@ -1,31 +1,53 @@
 // api/endRoom.js
-import { RoomServiceClient } from 'livekit-server-sdk';
+const { RoomServiceClient } = require('livekit-server-sdk');
 
-const svc = new RoomServiceClient(
-  process.env.LIVEKIT_WS_URL,      // e.g. wss://xxxx.livekit.cloud
-  process.env.LIVEKIT_API_KEY,
-  process.env.LIVEKIT_API_SECRET
-);
+module.exports.config = { runtime: 'nodejs20.x' };
 
-export default async function handler(req, res) {
-  // CORS (optional)
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'content-type');
-    return res.status(204).end();
-  }
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-
-  try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const room = String(body.room || '').trim();
-    if (!room) return res.status(400).json({ error: 'missing room' });
-
-    await svc.deleteRoom(room); // disconnects everyone immediately
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.status(200).json({ ok: true, room });
-  } catch (e) {
-    return res.status(500).json({ error: e?.message || 'internal_error' });
-  }
+function bad(res, code, msg) {
+  return res.status(code).json({ error: msg });
 }
+
+module.exports = async (req, res) => {
+  try {
+    // CORS preflight
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      return res.status(204).end();
+    }
+
+    if (req.method !== 'POST') {
+      return bad(res, 405, 'POST only');
+    }
+
+    const { LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_WS_URL } = process.env;
+    if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_WS_URL) {
+      return bad(res, 500, 'Server misconfigured: missing LIVEKIT env vars');
+    }
+
+    // Accept JSON from GET query or POST body (like your token endpoint)
+    const src = req.method === 'GET' ? req.query : (req.body || {});
+    const room = String(src.room || '').trim();
+    if (!room) return bad(res, 400, 'Missing room');
+
+    const svc = new RoomServiceClient(
+      LIVEKIT_WS_URL,
+      LIVEKIT_API_KEY,
+      LIVEKIT_API_SECRET
+    );
+
+    // End the room for everyone
+    await svc.deleteRoom(room);
+
+    // CORS headers on response
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    return res.status(200).json({ ok: true, room });
+  } catch (err) {
+    return bad(res, 500, err?.message || 'internal error');
+  }
+};
