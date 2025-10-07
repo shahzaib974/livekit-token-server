@@ -2,26 +2,19 @@
 import { RoomServiceClient } from 'livekit-server-sdk';
 
 const svc = new RoomServiceClient(
-  process.env.LIVEKIT_WS_URL,
+  process.env.LIVEKIT_WS_URL,      // e.g. wss://xxxx.livekit.cloud
   process.env.LIVEKIT_API_KEY,
   process.env.LIVEKIT_API_SECRET
 );
 
 export default async function handler(req, res) {
-  // CORS + method guard (optional)
+  // CORS (optional)
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'content-type,x-admin-token');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type');
     return res.status(204).end();
   }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'POST only' });
-  }
-
-  // Simple admin auth
-  if (req.headers['x-admin-token'] !== process.env.ADMIN_API_TOKEN) {
-    return res.status(401).json({ error: 'unauthorized' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
